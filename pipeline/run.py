@@ -5,21 +5,33 @@ from pathlib import Path
 from .mesh_gen import image_to_3d
 from .auto_rig import auto_rig
 
+# 프로젝트 루트의 output/ 디렉토리
+PROJECT_ROOT = Path(__file__).parent.parent
+OUTPUT_BASE = PROJECT_ROOT / "output"
+
 
 def run_pipeline(image_path: str | Path, output_dir: str | Path = None) -> dict:
     """이미지 한 장에서 리깅된 3D 모델을 생성한다.
+
+    output_dir을 지정하지 않으면 ~/dev/autorig3d/output/{이미지이름}/ 에 저장.
 
     Returns:
         {"output_dir": str, "mesh_path": str, "rigged_path": str}
     """
     image_path = Path(image_path)
+
     if output_dir is None:
-        output_dir = Path("/tmp/autorig3d_output")
+        # 이미지 파일명(확장자 제외)으로 폴더 생성
+        folder_name = image_path.stem
+        output_dir = OUTPUT_BASE / folder_name
 
     output_dir = Path(output_dir)
     if output_dir.exists():
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True)
+
+    # 원본 이미지를 output 폴더에 복사
+    shutil.copy2(image_path, output_dir / f"original{image_path.suffix}")
 
     # Step 1: 이미지 → 3D 메쉬
     mesh_path = image_to_3d(image_path, output_dir)
