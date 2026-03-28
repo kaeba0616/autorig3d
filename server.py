@@ -10,6 +10,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 
 from pipeline.mesh_gen import image_to_3d
 from pipeline.auto_rig import auto_rig
+from pipeline.vrm_convert import convert_to_vrm
 
 load_dotenv()
 
@@ -57,13 +58,24 @@ async def generate(file: UploadFile = File(...)):
             "mesh_path": str(mesh_path),
         })
 
+    # Step 3: VRM 변환
+    vrm_path = None
+    vrm_file = None
+    try:
+        vrm_path = convert_to_vrm(str(rigged_path), str(output_dir))
+        vrm_file = vrm_path.name
+    except Exception as e:
+        print(f"VRM 변환 실패 (비치명적): {e}")
+
     return {
         "name": stem,
         "mesh_file": mesh_path.name,
         "rigged_file": rigged_path.name,
+        "vrm_file": vrm_file,
         "output_dir": str(output_dir),
         "download_url": f"/output/{stem}/{rigged_path.name}",
         "mesh_download_url": f"/output/{stem}/{mesh_path.name}",
+        "vrm_download_url": f"/output/{stem}/{vrm_file}" if vrm_file else None,
     }
 
 

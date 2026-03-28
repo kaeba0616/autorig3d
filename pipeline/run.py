@@ -1,9 +1,10 @@
-"""전체 파이프라인: 이미지 → 3D 메쉬 → 자동 리깅 → GLB 출력."""
+"""전체 파이프라인: 이미지 → 3D 메쉬 → 자동 리깅 → VRM 출력."""
 import shutil
 from pathlib import Path
 
 from .mesh_gen import image_to_3d
 from .auto_rig import auto_rig
+from .vrm_convert import convert_to_vrm
 
 # 프로젝트 루트의 output/ 디렉토리
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -39,17 +40,29 @@ def run_pipeline(image_path: str | Path, output_dir: str | Path = None) -> dict:
     # Step 2: 3D 메쉬 → 자동 리깅
     rigged_path = auto_rig(mesh_path, output_dir)
 
+    # Step 3: 리깅된 모델 → VRM 변환
+    vrm_path = None
+    try:
+        vrm_path = convert_to_vrm(rigged_path, output_dir)
+    except Exception as e:
+        print(f"  ⚠ VRM 변환 실패: {e}")
+        print(f"  → GLB/FBX 파일은 정상 생성됨. VRM은 수동 변환 필요.")
+
     print(f"\n{'='*50}")
     print(f"파이프라인 완료!")
     print(f"  원본 메쉬: {mesh_path}")
     print(f"  리깅 모델: {rigged_path}")
-    print(f"\n이 GLB 파일을 3D 뷰어에서 열어 확인하세요.")
-    print(f"VRM 변환 후 VSeeFace에서 VTuber로 사용 가능합니다.")
+    if vrm_path:
+        print(f"  VRM 모델: {vrm_path}")
+        print(f"\nVSeeFace에서 {vrm_path} 를 열면 VTuber로 사용 가능합니다.")
+    else:
+        print(f"\nGLB/FBX 파일을 3D 뷰어에서 확인하세요.")
 
     return {
         "output_dir": str(output_dir),
         "mesh_path": str(mesh_path),
         "rigged_path": str(rigged_path),
+        "vrm_path": str(vrm_path) if vrm_path else None,
     }
 
 

@@ -147,7 +147,8 @@
     <h2 id="resultTitle">완료!</h2>
     <p id="resultDesc"></p>
     <div class="btn-row">
-      <a class="btn btn-primary" id="dlRigged" download>리깅 모델 다운로드</a>
+      <a class="btn btn-primary" id="dlVrm" download style="display:none">VRM 다운로드 (VSeeFace용)</a>
+      <a class="btn btn-secondary" id="dlRigged" download>리깅 모델 (GLB/FBX)</a>
       <a class="btn btn-secondary" id="dlMesh" download>원본 메쉬</a>
       <button class="btn btn-pink" onclick="resetUI()">다시 만들기</button>
     </div>
@@ -239,13 +240,24 @@ async function startGenerate(file) {
     setStep(2, 'done');
     setStep(3, 'done');
 
-    document.getElementById('resultTitle').textContent = `${data.name} — 리깅 완료!`;
-    document.getElementById('resultDesc').textContent =
-      `output/${data.name}/ 폴더에 저장됨`;
+    const hasVrm = !!data.vrm_download_url;
+    document.getElementById('resultTitle').textContent = `${data.name} — ${hasVrm ? 'VRM 변환 완료!' : '리깅 완료!'}`;
+    document.getElementById('resultDesc').textContent = hasVrm
+      ? `VSeeFace에서 VRM 파일을 열면 바로 VTuber로 사용 가능합니다`
+      : `output/${data.name}/ 폴더에 저장됨`;
     document.getElementById('dlRigged').href = data.download_url;
     document.getElementById('dlRigged').download = data.rigged_file;
     document.getElementById('dlMesh').href = data.mesh_download_url;
     document.getElementById('dlMesh').download = data.mesh_file;
+
+    const vrmBtn = document.getElementById('dlVrm');
+    if (hasVrm) {
+      vrmBtn.href = data.vrm_download_url;
+      vrmBtn.download = data.vrm_file;
+      vrmBtn.style.display = '';
+    } else {
+      vrmBtn.style.display = 'none';
+    }
 
     results.classList.add('active');
     loadHistory();
