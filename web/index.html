@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoRig3D — 이미지 → 3D 리깅 모델</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0a0a0a; color: #e0e0e0; min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 2rem 1rem;
+  }
+  h1 { font-size: 2rem; font-weight: 700; margin-bottom: 0.25rem; }
+  h1 .a { color: #f472b6; }
+  h1 .b { color: #818cf8; }
+  .subtitle { color: #888; margin-bottom: 2rem; font-size: 0.9rem; }
+
+  .dropzone {
+    width: 100%; max-width: 600px;
+    border: 2px dashed #333; border-radius: 12px;
+    padding: 3rem 2rem; text-align: center;
+    cursor: pointer; transition: all 0.2s; margin-bottom: 1.5rem;
+    position: relative;
+  }
+  .dropzone:hover, .dropzone.dragover {
+    border-color: #818cf8; background: rgba(129, 140, 248, 0.05);
+  }
+  .dropzone p { font-size: 1.1rem; margin-bottom: 0.5rem; }
+  .dropzone small { color: #666; }
+  .dropzone input { display: none; }
+  .dropzone .preview-thumb {
+    max-width: 200px; max-height: 200px; border-radius: 8px;
+    margin-bottom: 0.75rem;
+  }
+
+  /* Progress */
+  .progress { display: none; width: 100%; max-width: 600px; margin-bottom: 1.5rem; }
+  .progress.active { display: block; }
+  .step {
+    padding: 0.75rem 1rem; margin-bottom: 0.5rem; border-radius: 8px;
+    background: #111; display: flex; align-items: center; gap: 0.75rem;
+    border: 1px solid #1a1a1a;
+  }
+  .step-icon {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.75rem; font-weight: 700; flex-shrink: 0;
+  }
+  .step-icon.waiting { background: #1a1a1a; color: #444; }
+  .step-icon.running { background: rgba(129,140,248,0.2); color: #818cf8; animation: pulse 1.5s infinite; }
+  .step-icon.done { background: rgba(110,231,183,0.15); color: #6ee7b7; }
+  .step-icon.error { background: rgba(239,68,68,0.15); color: #ef4444; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .step-info { flex: 1; }
+  .step-name { font-size: 0.9rem; }
+  .step-desc { font-size: 0.75rem; color: #555; }
+  .step.dim .step-name { color: #555; }
+
+  /* Results */
+  .results { display: none; width: 100%; max-width: 600px; }
+  .results.active { display: block; }
+
+  .result-card {
+    background: #111; border: 1px solid #1a1a1a; border-radius: 12px;
+    padding: 1.5rem; margin-bottom: 1rem; text-align: center;
+  }
+  .result-card h2 { color: #6ee7b7; font-size: 1.2rem; margin-bottom: 0.5rem; }
+  .result-card p { color: #888; font-size: 0.85rem; margin-bottom: 1rem; }
+
+  .btn-row { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    padding: 0.7rem 1.5rem; border-radius: 8px; font-size: 0.9rem;
+    cursor: pointer; border: none; font-weight: 500; text-decoration: none;
+    display: inline-flex; align-items: center; gap: 0.4rem;
+  }
+  .btn-primary { background: #818cf8; color: #000; }
+  .btn-primary:hover { background: #a5b4fc; }
+  .btn-secondary { background: #222; color: #aaa; border: 1px solid #333; }
+  .btn-secondary:hover { background: #2a2a2a; color: #fff; }
+  .btn-pink { background: #f472b6; color: #000; }
+  .btn-pink:hover { background: #f9a8d4; }
+
+  .error-box {
+    background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3);
+    border-radius: 10px; padding: 1rem; display: none;
+    max-width: 600px; width: 100%; margin-bottom: 1rem; font-size: 0.9rem;
+  }
+  .error-box.active { display: block; }
+
+  /* History */
+  .history { width: 100%; max-width: 600px; margin-top: 2rem; }
+  .history h3 { font-size: 0.9rem; color: #555; margin-bottom: 0.75rem; }
+  .history-item {
+    background: #111; border: 1px solid #1a1a1a; border-radius: 8px;
+    padding: 0.75rem 1rem; margin-bottom: 0.5rem;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .history-item .name { font-size: 0.9rem; }
+  .history-item .dl { font-size: 0.8rem; color: #818cf8; text-decoration: none; }
+  .history-item .dl:hover { color: #a5b4fc; }
+
+  .timer { font-size: 0.75rem; color: #555; margin-top: 0.25rem; }
+</style>
+</head>
+<body>
+
+<h1><span class="a">Auto</span><span class="b">Rig3D</span></h1>
+<p class="subtitle">이미지 한 장 → 리깅된 3D 모델</p>
+
+<div class="dropzone" id="dropzone">
+  <p>캐릭터 이미지를 드래그하세요</p>
+  <small>PNG / JPG — 결과물: 리깅된 GLB/FBX 3D 모델</small>
+  <input type="file" id="fileInput" accept="image/png,image/jpeg,image/jpg">
+</div>
+
+<div class="progress" id="progress">
+  <div class="step dim" id="step1">
+    <div class="step-icon waiting">1</div>
+    <div class="step-info">
+      <div class="step-name">3D 모델 생성</div>
+      <div class="step-desc">Meshy AI로 이미지 → 3D 변환 (1-5분)</div>
+    </div>
+  </div>
+  <div class="step dim" id="step2">
+    <div class="step-icon waiting">2</div>
+    <div class="step-info">
+      <div class="step-name">자동 리깅</div>
+      <div class="step-desc">Blender로 19개 본 스켈레톤 + 웨이트 페인팅</div>
+    </div>
+  </div>
+  <div class="step dim" id="step3">
+    <div class="step-icon waiting">3</div>
+    <div class="step-info">
+      <div class="step-name">내보내기</div>
+      <div class="step-desc">GLB/FBX 파일 생성</div>
+    </div>
+  </div>
+  <div class="timer" id="timer"></div>
+</div>
+
+<div class="error-box" id="errorBox"></div>
+
+<div class="results" id="results">
+  <div class="result-card">
+    <h2 id="resultTitle">완료!</h2>
+    <p id="resultDesc"></p>
+    <div class="btn-row">
+      <a class="btn btn-primary" id="dlRigged" download>리깅 모델 다운로드</a>
+      <a class="btn btn-secondary" id="dlMesh" download>원본 메쉬</a>
+      <button class="btn btn-pink" onclick="resetUI()">다시 만들기</button>
+    </div>
+  </div>
+</div>
+
+<div class="history" id="historySection" style="display:none;">
+  <h3>이전 결과</h3>
+  <div id="historyList"></div>
+</div>
+
+<script>
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const progress = document.getElementById('progress');
+const errorBox = document.getElementById('errorBox');
+const results = document.getElementById('results');
+let timerInterval = null;
+
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault(); dropzone.classList.remove('dragover');
+  if (e.dataTransfer.files.length) startGenerate(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e => {
+  if (e.target.files.length) startGenerate(e.target.files[0]);
+});
+
+function setStep(num, state) {
+  const el = document.getElementById('step' + num);
+  const icon = el.querySelector('.step-icon');
+  el.classList.remove('dim');
+  icon.className = 'step-icon ' + state;
+  icon.textContent = state === 'done' ? '✓' : state === 'error' ? '✗' : num;
+}
+
+function startTimer() {
+  const start = Date.now();
+  const el = document.getElementById('timer');
+  timerInterval = setInterval(() => {
+    const sec = Math.floor((Date.now() - start) / 1000);
+    const min = Math.floor(sec / 60);
+    const s = sec % 60;
+    el.textContent = `경과 시간: ${min}분 ${s.toString().padStart(2, '0')}초`;
+  }, 1000);
+}
+
+function stopTimer() { clearInterval(timerInterval); }
+
+async function startGenerate(file) {
+  if (!file.type.startsWith('image/')) {
+    showError('이미지 파일만 지원합니다.');
+    return;
+  }
+
+  // 미리보기
+  const reader = new FileReader();
+  reader.onload = e => {
+    dropzone.innerHTML = `<img class="preview-thumb" src="${e.target.result}"><p>${file.name}</p><small>처리 중...</small>`;
+  };
+  reader.readAsDataURL(file);
+
+  errorBox.classList.remove('active');
+  results.classList.remove('active');
+  progress.classList.add('active');
+
+  setStep(1, 'running');
+  startTimer();
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const res = await fetch('/api/generate', { method: 'POST', body: formData });
+    stopTimer();
+    const data = await res.json();
+
+    if (!res.ok) {
+      const failStep = data.step || 1;
+      setStep(failStep, 'error');
+      for (let i = failStep + 1; i <= 3; i++) setStep(i, 'waiting');
+      showError(data.error || '서버 오류');
+      return;
+    }
+
+    setStep(1, 'done');
+    setStep(2, 'done');
+    setStep(3, 'done');
+
+    document.getElementById('resultTitle').textContent = `${data.name} — 리깅 완료!`;
+    document.getElementById('resultDesc').textContent =
+      `output/${data.name}/ 폴더에 저장됨`;
+    document.getElementById('dlRigged').href = data.download_url;
+    document.getElementById('dlRigged').download = data.rigged_file;
+    document.getElementById('dlMesh').href = data.mesh_download_url;
+    document.getElementById('dlMesh').download = data.mesh_file;
+
+    results.classList.add('active');
+    loadHistory();
+  } catch (err) {
+    stopTimer();
+    showError('서버에 연결할 수 없습니다.');
+  }
+}
+
+function showError(msg) {
+  errorBox.textContent = msg;
+  errorBox.classList.add('active');
+}
+
+function resetUI() {
+  results.classList.remove('active');
+  progress.classList.remove('active');
+  errorBox.classList.remove('active');
+  dropzone.innerHTML = `
+    <p>캐릭터 이미지를 드래그하세요</p>
+    <small>PNG / JPG — 결과물: 리깅된 GLB/FBX 3D 모델</small>
+    <input type="file" id="fileInput" accept="image/png,image/jpeg,image/jpg">
+  `;
+  document.getElementById('fileInput').addEventListener('change', e => {
+    if (e.target.files.length) startGenerate(e.target.files[0]);
+  });
+  for (let i = 1; i <= 3; i++) {
+    const el = document.getElementById('step' + i);
+    el.classList.add('dim');
+    el.querySelector('.step-icon').className = 'step-icon waiting';
+    el.querySelector('.step-icon').textContent = i;
+  }
+  document.getElementById('timer').textContent = '';
+}
+
+async function loadHistory() {
+  try {
+    const res = await fetch('/api/history');
+    const data = await res.json();
+    const section = document.getElementById('historySection');
+    const list = document.getElementById('historyList');
+
+    if (data.items.length === 0) { section.style.display = 'none'; return; }
+
+    section.style.display = 'block';
+    list.innerHTML = data.items.map(item => {
+      const dl = item.rigged_file
+        ? `<a class="dl" href="/output/${item.name}/${item.rigged_file}" download>다운로드</a>`
+        : '<span style="color:#555">진행 중</span>';
+      return `<div class="history-item"><span class="name">${item.name}</span>${dl}</div>`;
+    }).join('');
+  } catch(e) {}
+}
+
+loadHistory();
+</script>
+
+</body>
+</html>
