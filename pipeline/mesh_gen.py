@@ -7,33 +7,43 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-MESHY_BASE = "https://api.meshy.ai/openapi/v2"
+MESHY_BASE = "https://api.meshy.ai/openapi/v1"
 
 
 def _headers():
-    return {"Authorization": f"Bearer {os.getenv('MESHY_API_KEY')}"}
+    return {
+        "Authorization": f"Bearer {os.getenv('MESHY_API_KEY')}",
+        "Content-Type": "application/json",
+    }
 
 
 def create_3d_from_image(image_path: str | Path) -> str:
-    """이미지를 Meshy API에 업로드하여 3D 모델 생성 태스크를 시작한다.
+    """이미지를 Meshy API에 base64로 전송하여 3D 모델 생성 태스크를 시작한다.
 
     Returns: task_id
     """
+    import base64
     image_path = Path(image_path)
 
+    # 이미지를 base64 data URI로 변환
+    suffix = image_path.suffix.lower()
+    mime = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg"}.get(
+        suffix.lstrip("."), "image/png"
+    )
     with open(image_path, "rb") as f:
-        files = {"image_file": (image_path.name, f, "image/png")}
-        data = {
-            "ai_model": "meshy-4",
-            "topology": "quad",
-            "target_polycount": 30000,
-        }
-        resp = requests.post(
-            f"{MESHY_BASE}/image-to-3d",
-            headers=_headers(),
-            files=files,
-            data=data,
-        )
+        b64 = base64.b64encode(f.read()).decode()
+    data_uri = f"data:{mime};base64,{b64}"
+
+    resp = requests.post(
+        f"{MESHY_BASE}/image-to-3d",
+        headers=_headers(),
+        json={
+            "image_url": data_uri,
+            "enable_pbr": True,
+            "should_remesh": True,
+            "should_texture": True,
+        },
+    )
 
     resp.raise_for_status()
     result = resp.json()
