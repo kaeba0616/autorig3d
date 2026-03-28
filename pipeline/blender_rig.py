@@ -124,11 +124,43 @@ bpy.ops.object.parent_set(type='ARMATURE_AUTO')
 
 print(f"리깅 완료: {len(created_bones)}개 본")
 
-# GLB 내보내기
-bpy.ops.export_scene.gltf(
-    filepath=output_glb,
-    export_format='GLB',
-    use_selection=False,
-    export_animations=False,
-)
-print(f"내보내기 완료: {output_glb}")
+# 내보내기 — GLB를 시도하고, 실패하면 FBX로 폴백
+export_ok = False
+try:
+    bpy.ops.export_scene.gltf(
+        filepath=output_glb,
+        export_format='GLB',
+        use_selection=False,
+        export_animations=False,
+    )
+    export_ok = True
+    print(f"내보내기 완료 (GLB): {output_glb}")
+except Exception as e:
+    print(f"GLB 내보내기 실패: {e}, FBX로 폴백")
+
+if not export_ok:
+    # FBX로 폴백
+    fbx_path = output_glb.replace('.glb', '.fbx')
+    bpy.ops.export_scene.fbx(
+        filepath=fbx_path,
+        use_selection=False,
+        add_leaf_bones=False,
+        path_mode='COPY',
+        embed_textures=True,
+    )
+    print(f"내보내기 완료 (FBX): {fbx_path}")
+
+    # FBX를 다시 GLB로 변환 시도 (클린 씬)
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    bpy.ops.import_scene.fbx(filepath=fbx_path)
+    try:
+        bpy.ops.export_scene.gltf(
+            filepath=output_glb,
+            export_format='GLB',
+            use_selection=False,
+            export_animations=False,
+        )
+        print(f"FBX→GLB 변환 완료: {output_glb}")
+    except Exception as e2:
+        print(f"FBX→GLB 변환도 실패: {e2}")
+        print(f"FBX_FALLBACK: {fbx_path}")

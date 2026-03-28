@@ -48,12 +48,15 @@ def auto_rig(input_glb: str | Path, output_dir: str | Path) -> Path:
         raise RuntimeError(f"Blender 리깅 실패: {'; '.join(error_lines[:3])}")
 
     if not output_glb.exists():
-        # Blender가 성공했지만 파일이 없을 때 stdout/stderr 출력
-        print(f"  [stdout] {result.stdout[-500:]}")
-        print(f"  [stderr] {result.stderr[-500:]}")
-
-    if not output_glb.exists():
-        raise FileNotFoundError(f"리깅된 모델이 생성되지 않았습니다: {output_glb}")
+        # FBX 폴백 확인
+        fbx_path = output_dir / "rigged_model.fbx"
+        if fbx_path.exists():
+            print(f"  → GLB 내보내기 실패, FBX로 대체: {fbx_path}")
+            output_glb = fbx_path
+        else:
+            print(f"  [stdout] {result.stdout[-500:]}")
+            print(f"  [stderr] {result.stderr[-500:]}")
+            raise FileNotFoundError(f"리깅된 모델이 생성되지 않았습니다: {output_glb}")
 
     size_kb = output_glb.stat().st_size / 1024
     print(f"  → 리깅된 모델: {output_glb} ({size_kb:.0f}KB)")
