@@ -26,19 +26,22 @@ async def index():
     return FileResponse(WEB_DIR / "index.html")
 
 
+from fastapi import Query
+
 @app.post("/api/generate")
-async def generate(file: UploadFile = File(...)):
-    """이미지 → 3D 모델 → 자동 리깅."""
+async def generate(file: UploadFile = File(...), mode: str = Query("full")):
+    """이미지 → 3D 모델 (→ 자동 리깅 → VRM).
+
+    mode: "3d_only" = 3D 모델만 생성, "full" = 3D + 리깅 + VRM
+    """
     content = await file.read()
 
-    # 이미지 이름으로 output 폴더 생성
     stem = Path(file.filename or "model").stem
     output_dir = OUTPUT_BASE / stem
     if output_dir.exists():
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True)
 
-    # 원본 이미지 저장
     ext = Path(file.filename or "img.png").suffix or ".png"
     image_path = output_dir / f"original{ext}"
     image_path.write_bytes(content)
@@ -48,6 +51,20 @@ async def generate(file: UploadFile = File(...)):
         mesh_path = image_to_3d(str(image_path), str(output_dir))
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": f"3D 생성 실패: {e}", "step": 1})
+
+    # 3D만 요청한 경우
+    if mode == "3d_only":
+        return {
+            "name": stem,
+            "mode": "3d_only",
+            "mesh_file": mesh_path.name,
+            "rigged_file": None,
+            "vrm_file": None,
+            "output_dir": str(output_dir),
+            "download_url": f"/output/{stem}/{mesh_path.name}",
+            "mesh_download_url": f"/output/{stem}/{mesh_path.name}",
+            "vrm_download_url": None,
+        }
 
     # Step 2: 자동 리깅
     try:
@@ -69,6 +86,7 @@ async def generate(file: UploadFile = File(...)):
 
     return {
         "name": stem,
+        "mode": "full",
         "mesh_file": mesh_path.name,
         "rigged_file": rigged_path.name,
         "vrm_file": vrm_file,

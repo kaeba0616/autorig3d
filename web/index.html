@@ -15,7 +15,22 @@
   h1 { font-size: 2rem; font-weight: 700; margin-bottom: 0.25rem; }
   h1 .a { color: #f472b6; }
   h1 .b { color: #818cf8; }
-  .subtitle { color: #888; margin-bottom: 2rem; font-size: 0.9rem; }
+  .subtitle { color: #888; margin-bottom: 1.5rem; font-size: 0.9rem; }
+
+  .mode-select {
+    display: flex; gap: 0.75rem; margin-bottom: 1.5rem;
+    max-width: 600px; width: 100%;
+  }
+  .mode-btn {
+    flex: 1; background: #111; border: 1px solid #1a1a1a; border-radius: 10px;
+    padding: 1rem; cursor: pointer; text-align: center;
+    transition: all 0.2s; color: #888;
+  }
+  .mode-btn:hover { border-color: #333; }
+  .mode-btn.active { border-color: #818cf8; color: #e0e0e0; background: rgba(129,140,248,0.05); }
+  .mode-icon { display: block; font-size: 1.5rem; margin-bottom: 0.4rem; }
+  .mode-label { display: block; font-size: 0.9rem; font-weight: 600; }
+  .mode-desc { display: block; font-size: 0.7rem; color: #555; margin-top: 0.2rem; }
 
   .dropzone {
     width: 100%; max-width: 600px;
@@ -109,6 +124,19 @@
 <h1><span class="a">Auto</span><span class="b">Rig3D</span></h1>
 <p class="subtitle">이미지 한 장 → 리깅된 3D 모델</p>
 
+<div class="mode-select" id="modeSelect">
+  <button class="mode-btn active" data-mode="full" onclick="selectMode('full')">
+    <span class="mode-icon">🎮</span>
+    <span class="mode-label">전체 파이프라인</span>
+    <span class="mode-desc">3D 모델 + 리깅 + VRM</span>
+  </button>
+  <button class="mode-btn" data-mode="3d_only" onclick="selectMode('3d_only')">
+    <span class="mode-icon">🧊</span>
+    <span class="mode-label">3D 모델만</span>
+    <span class="mode-desc">리깅 없이 GLB만 생성</span>
+  </button>
+</div>
+
 <div class="dropzone" id="dropzone">
   <p>캐릭터 이미지를 드래그하세요</p>
   <small>PNG / JPG — 결과물: 리깅된 GLB/FBX 3D 모델</small>
@@ -167,6 +195,16 @@ const progress = document.getElementById('progress');
 const errorBox = document.getElementById('errorBox');
 const results = document.getElementById('results');
 let timerInterval = null;
+let currentMode = 'full';
+
+function selectMode(mode) {
+  currentMode = mode;
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector(`[data-mode="${mode}"]`).classList.add('active');
+  // 드롭존 텍스트 업데이트
+  const desc = mode === '3d_only' ? 'GLB 3D 모델' : '리깅된 GLB/FBX + VRM';
+  dropzone.querySelector('small').textContent = `PNG / JPG — 결과물: ${desc}`;
+}
 
 dropzone.addEventListener('click', () => fileInput.click());
 dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
@@ -217,6 +255,10 @@ async function startGenerate(file) {
   results.classList.remove('active');
   progress.classList.add('active');
 
+  // 3D만 모드일 때 불필요한 단계 숨기기
+  document.getElementById('step2').style.display = currentMode === '3d_only' ? 'none' : '';
+  document.getElementById('step3').style.display = currentMode === '3d_only' ? 'none' : '';
+
   setStep(1, 'running');
   startTimer();
 
@@ -224,7 +266,7 @@ async function startGenerate(file) {
   formData.append('file', file);
 
   try {
-    const res = await fetch('/api/generate', { method: 'POST', body: formData });
+    const res = await fetch(`/api/generate?mode=${currentMode}`, { method: 'POST', body: formData });
     stopTimer();
     const data = await res.json();
 
@@ -241,10 +283,17 @@ async function startGenerate(file) {
     setStep(3, 'done');
 
     const hasVrm = !!data.vrm_download_url;
-    document.getElementById('resultTitle').textContent = `${data.name} — ${hasVrm ? 'VRM 변환 완료!' : '리깅 완료!'}`;
-    document.getElementById('resultDesc').textContent = hasVrm
-      ? `VSeeFace에서 VRM 파일을 열면 바로 VTuber로 사용 가능합니다`
-      : `output/${data.name}/ 폴더에 저장됨`;
+    const is3dOnly = data.mode === '3d_only';
+
+    if (is3dOnly) {
+      document.getElementById('resultTitle').textContent = `${data.name} — 3D 모델 생성 완료!`;
+      document.getElementById('resultDesc').textContent = `output/${data.name}/ 폴더에 GLB 저장됨`;
+    } else {
+      document.getElementById('resultTitle').textContent = `${data.name} — ${hasVrm ? 'VRM 변환 완료!' : '리깅 완료!'}`;
+      document.getElementById('resultDesc').textContent = hasVrm
+        ? `VSeeFace에서 VRM 파일을 열면 바로 VTuber로 사용 가능합니다`
+        : `output/${data.name}/ 폴더에 저장됨`;
+    }
     document.getElementById('dlRigged').href = data.download_url;
     document.getElementById('dlRigged').download = data.rigged_file;
     document.getElementById('dlMesh').href = data.mesh_download_url;
