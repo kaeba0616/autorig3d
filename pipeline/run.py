@@ -11,10 +11,11 @@ PROJECT_ROOT = Path(__file__).parent.parent
 OUTPUT_BASE = PROJECT_ROOT / "output"
 
 
-def run_pipeline(image_path: str | Path, output_dir: str | Path = None) -> dict:
+def run_pipeline(image_path: str | Path, output_dir: str | Path = None, rig_mode: str = "auto") -> dict:
     """이미지 한 장에서 리깅된 3D 모델을 생성한다.
 
-    output_dir을 지정하지 않으면 ~/dev/autorig3d/output/{이미지이름}/ 에 저장.
+    Args:
+        rig_mode: "auto" (UniRig → Blender 폴백), "unirig", "blender"
 
     Returns:
         {"output_dir": str, "mesh_path": str, "rigged_path": str}
@@ -38,7 +39,7 @@ def run_pipeline(image_path: str | Path, output_dir: str | Path = None) -> dict:
     mesh_path = image_to_3d(image_path, output_dir)
 
     # Step 2: 3D 메쉬 → 자동 리깅
-    rigged_path = auto_rig(mesh_path, output_dir)
+    rigged_path = auto_rig(mesh_path, output_dir, mode=rig_mode)
 
     # Step 3: 리깅된 모델 → VRM 변환
     vrm_path = None
@@ -69,10 +70,13 @@ def run_pipeline(image_path: str | Path, output_dir: str | Path = None) -> dict:
 if __name__ == "__main__":
     import sys
     if len(sys.argv) < 2:
-        print("Usage: python -m pipeline.run <image_path> [output_dir]")
-        print("Example: python -m pipeline.run character.png ./output")
+        print("Usage: python -m pipeline.run <image_path> [--mode unirig|blender|auto]")
+        print("Example: python -m pipeline.run character.png --mode unirig")
         sys.exit(1)
 
     image_path = sys.argv[1]
-    output_dir = sys.argv[2] if len(sys.argv) > 2 else None
-    result = run_pipeline(image_path, output_dir)
+    rig_mode = "auto"
+    if "--mode" in sys.argv:
+        rig_mode = sys.argv[sys.argv.index("--mode") + 1]
+
+    result = run_pipeline(image_path, rig_mode=rig_mode)
