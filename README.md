@@ -49,6 +49,22 @@ echo "MESHY_API_KEY=여기에_meshy_api_키" > .env
 
 ## 사용법
 
+### 방법 0: Colab + UniRig AI 리깅 (최고 품질)
+
+**UniRig(SIGGRAPH 2025)**로 AI 기반 자동 리깅. GPU 없어도 Colab 무료 T4로 실행 가능.
+
+1. [Colab 노트북 열기](colab/AutoRig3D_UniRig.ipynb) (GitHub에서 "Open in Colab" 클릭)
+2. 런타임 → 런타임 유형 변경 → **T4 GPU** 선택
+3. 셀을 순서대로 실행
+4. Meshy에서 생성된 `model.glb`를 업로드
+5. 리깅된 GLB 다운로드 → 로컬에서 VRM 변환
+
+```
+model.glb → [UniRig 스켈레톤] → [UniRig 스킨닝] → [머지] → rigged_model.glb
+```
+
+이렇게 하면 하드코딩 본 대신 **AI가 메쉬를 분석해서 최적 본 배치 + 웨이트 페인팅**을 합니다.
+
 ### 방법 1: 웹 UI (추천)
 
 ```bash
