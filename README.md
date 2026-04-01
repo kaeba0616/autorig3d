@@ -202,6 +202,61 @@ UniRig 사용 시 추가 파일:
 
 ---
 
+## Docker로 실행 (5080 PC 배포용, 추천)
+
+Docker를 사용하면 CUDA, spconv, UniRig 등 복잡한 의존성을 한 번에 해결합니다.
+
+### 사전 요구
+
+1. **Docker**: https://docs.docker.com/engine/install/
+2. **NVIDIA Container Toolkit**: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html
+
+```bash
+# NVIDIA Container Toolkit 설치 (Ubuntu)
+curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
+  sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+  sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
+sudo nvidia-ctk runtime configure --runtime=docker
+sudo systemctl restart docker
+```
+
+### 빌드 + 실행
+
+```bash
+git clone https://github.com/kaeba0616/autorig3d.git
+cd autorig3d
+
+# API 키 설정
+echo "MESHY_API_KEY=여기에_키" > .env
+
+# 빌드 (최초 1회, 10-20분)
+docker compose build
+
+# 실행
+docker compose up
+```
+
+http://localhost:8000 접속 → 이미지 드래그 → 완료.
+
+### Docker CLI 사용
+
+```bash
+# 전체 파이프라인 (UniRig AI)
+docker compose run autorig3d python -m pipeline.run /app/output/image.png --mode unirig
+
+# 3D 모델만
+docker compose run autorig3d python -c "
+from pipeline.mesh_gen import image_to_3d
+image_to_3d('/app/output/image.png', '/app/output/result')
+"
+```
+
+`output/` 폴더는 호스트와 공유되므로, 결과 파일을 바로 확인할 수 있습니다.
+
+---
+
 ## 문제 해결
 
 | 문제 | 해결 |
@@ -213,3 +268,5 @@ UniRig 사용 시 추가 파일:
 | UniRig spconv 오류 | CUDA 버전 확인: `nvidia-smi` |
 | GPU 없음 | `--mode blender` 사용 |
 | conda 없음 | Miniconda 설치 (위 가이드 참조) |
+| Docker GPU 안 됨 | NVIDIA Container Toolkit 설치 확인 |
+| Docker 빌드 느림 | 최초 1회만, 이후 캐시됨 |

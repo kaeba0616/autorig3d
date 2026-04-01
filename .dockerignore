@@ -1,0 +1,9 @@
+.venv/
+vendor/
+output/
+.env
+__pycache__/
+*.pyc
+.git/
+colab/
+*.blend1
