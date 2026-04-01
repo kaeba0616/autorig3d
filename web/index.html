@@ -135,6 +135,11 @@
     <span class="mode-label">3D 모델만</span>
     <span class="mode-desc">리깅 없이 GLB만 생성</span>
   </button>
+  <button class="mode-btn" data-mode="rig_only" onclick="selectMode('rig_only')">
+    <span class="mode-icon">🦴</span>
+    <span class="mode-label">GLB 리깅</span>
+    <span class="mode-desc">기존 GLB/FBX에 리깅 적용</span>
+  </button>
 </div>
 
 <div class="dropzone" id="dropzone">
@@ -201,9 +206,18 @@ function selectMode(mode) {
   currentMode = mode;
   document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
   document.querySelector(`[data-mode="${mode}"]`).classList.add('active');
-  // 드롭존 텍스트 업데이트
-  const desc = mode === '3d_only' ? 'GLB 3D 모델' : '리깅된 GLB/FBX + VRM';
-  dropzone.querySelector('small').textContent = `PNG / JPG — 결과물: ${desc}`;
+
+  const fi = document.getElementById('fileInput');
+  if (mode === 'rig_only') {
+    dropzone.querySelector('p').textContent = 'GLB / FBX 모델 파일을 드래그하세요';
+    dropzone.querySelector('small').textContent = 'GLB / FBX — 결과물: 리깅된 모델 + VRM';
+    fi.accept = '.glb,.fbx,.obj';
+  } else {
+    dropzone.querySelector('p').textContent = '캐릭터 이미지를 드래그하세요';
+    const desc = mode === '3d_only' ? 'GLB 3D 모델' : '리깅된 GLB/FBX + VRM';
+    dropzone.querySelector('small').textContent = `PNG / JPG — 결과물: ${desc}`;
+    fi.accept = 'image/png,image/jpeg,image/jpg';
+  }
 }
 
 dropzone.addEventListener('click', () => fileInput.click());
@@ -239,7 +253,13 @@ function startTimer() {
 function stopTimer() { clearInterval(timerInterval); }
 
 async function startGenerate(file) {
-  if (!file.type.startsWith('image/')) {
+  if (currentMode === 'rig_only') {
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (!['glb', 'fbx', 'obj'].includes(ext)) {
+      showError('3D 모델 파일만 지원합니다 (GLB, FBX, OBJ).');
+      return;
+    }
+  } else if (!file.type.startsWith('image/')) {
     showError('이미지 파일만 지원합니다.');
     return;
   }
@@ -255,9 +275,26 @@ async function startGenerate(file) {
   results.classList.remove('active');
   progress.classList.add('active');
 
-  // 3D만 모드일 때 불필요한 단계 숨기기
-  document.getElementById('step2').style.display = currentMode === '3d_only' ? 'none' : '';
-  document.getElementById('step3').style.display = currentMode === '3d_only' ? 'none' : '';
+  // 모드에 따라 단계 표시
+  if (currentMode === '3d_only') {
+    document.getElementById('step1').querySelector('.step-name').textContent = '3D 모델 생성';
+    document.getElementById('step1').style.display = '';
+    document.getElementById('step2').style.display = 'none';
+    document.getElementById('step3').style.display = 'none';
+  } else if (currentMode === 'rig_only') {
+    document.getElementById('step1').querySelector('.step-name').textContent = '자동 리깅';
+    document.getElementById('step1').querySelector('.step-desc').textContent = 'GLB/FBX 모델에 스켈레톤 + 웨이트 적용';
+    document.getElementById('step1').style.display = '';
+    document.getElementById('step2').querySelector('.step-name').textContent = 'VRM 변환';
+    document.getElementById('step2').style.display = '';
+    document.getElementById('step3').style.display = 'none';
+  } else {
+    document.getElementById('step1').querySelector('.step-name').textContent = '3D 모델 생성';
+    document.getElementById('step1').querySelector('.step-desc').textContent = 'Meshy AI로 이미지 → 3D 변환 (1-5분)';
+    document.getElementById('step1').style.display = '';
+    document.getElementById('step2').style.display = '';
+    document.getElementById('step3').style.display = '';
+  }
 
   setStep(1, 'running');
   startTimer();
@@ -266,7 +303,8 @@ async function startGenerate(file) {
   formData.append('file', file);
 
   try {
-    const res = await fetch(`/api/generate?mode=${currentMode}`, { method: 'POST', body: formData });
+    const endpoint = currentMode === 'rig_only' ? '/api/rig' : `/api/generate?mode=${currentMode}`;
+    const res = await fetch(endpoint, { method: 'POST', body: formData });
     stopTimer();
     const data = await res.json();
 

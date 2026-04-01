@@ -67,16 +67,65 @@ def run_pipeline(image_path: str | Path, output_dir: str | Path = None, rig_mode
     }
 
 
+def rig_existing_model(model_path: str | Path, output_dir: str | Path = None, rig_mode: str = "auto") -> dict:
+    """기존 GLB/FBX 모델에 리깅 + VRM 변환만 수행한다."""
+    model_path = Path(model_path)
+
+    if output_dir is None:
+        output_dir = OUTPUT_BASE / model_path.stem
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # 모델 파일을 output에 복사 (원본이 다른 곳에 있을 수 있음)
+    dest_model = output_dir / model_path.name
+    if model_path.resolve() != dest_model.resolve():
+        shutil.copy2(model_path, dest_model)
+
+    # Step 1: 리깅
+    print(f"[Step 1/2] 자동 리깅 중 (mode={rig_mode})...")
+    rigged_path = auto_rig(dest_model, output_dir, mode=rig_mode)
+
+    # Step 2: VRM 변환
+    vrm_path = None
+    try:
+        vrm_path = convert_to_vrm(rigged_path, output_dir)
+    except Exception as e:
+        print(f"  ⚠ VRM 변환 실패: {e}")
+
+    print(f"\n{'='*50}")
+    print(f"리깅 완료!")
+    print(f"  원본 모델: {dest_model}")
+    print(f"  리깅 모델: {rigged_path}")
+    if vrm_path:
+        print(f"  VRM 모델: {vrm_path}")
+
+    return {
+        "output_dir": str(output_dir),
+        "mesh_path": str(dest_model),
+        "rigged_path": str(rigged_path),
+        "vrm_path": str(vrm_path) if vrm_path else None,
+    }
+
+
 if __name__ == "__main__":
     import sys
     if len(sys.argv) < 2:
-        print("Usage: python -m pipeline.run <image_path> [--mode unirig|blender|auto]")
-        print("Example: python -m pipeline.run character.png --mode unirig")
+        print("Usage:")
+        print("  이미지 → 3D → 리깅:")
+        print("    python -m pipeline.run character.png [--mode unirig|blender|auto]")
+        print("")
+        print("  기존 GLB/FBX → 리깅:")
+        print("    python -m pipeline.run model.glb --rig-only [--mode unirig|blender|auto]")
         sys.exit(1)
 
-    image_path = sys.argv[1]
+    input_path = sys.argv[1]
     rig_mode = "auto"
     if "--mode" in sys.argv:
         rig_mode = sys.argv[sys.argv.index("--mode") + 1]
 
-    result = run_pipeline(image_path, rig_mode=rig_mode)
+    rig_only = "--rig-only" in sys.argv
+
+    if rig_only:
+        result = rig_existing_model(input_path, rig_mode=rig_mode)
+    else:
+        result = run_pipeline(input_path, rig_mode=rig_mode)

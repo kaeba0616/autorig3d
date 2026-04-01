@@ -97,6 +97,52 @@ async def generate(file: UploadFile = File(...), mode: str = Query("full")):
     }
 
 
+@app.post("/api/rig")
+async def rig_model(file: UploadFile = File(...)):
+    """GLB/FBX 모델 파일을 직접 리깅 + VRM 변환."""
+    content = await file.read()
+
+    stem = Path(file.filename or "model").stem
+    output_dir = OUTPUT_BASE / stem
+    if output_dir.exists():
+        shutil.rmtree(output_dir)
+    output_dir.mkdir(parents=True)
+
+    # 모델 파일 저장
+    ext = Path(file.filename or "model.glb").suffix or ".glb"
+    mesh_path = output_dir / f"model{ext}"
+    mesh_path.write_bytes(content)
+
+    # Step 1: 자동 리깅
+    try:
+        rigged_path = auto_rig(str(mesh_path), str(output_dir))
+    except Exception as e:
+        return JSONResponse(status_code=500, content={
+            "error": f"리깅 실패: {e}", "step": 1,
+        })
+
+    # Step 2: VRM 변환
+    vrm_path = None
+    vrm_file = None
+    try:
+        vrm_path = convert_to_vrm(str(rigged_path), str(output_dir))
+        vrm_file = vrm_path.name
+    except Exception as e:
+        print(f"VRM 변환 실패 (비치명적): {e}")
+
+    return {
+        "name": stem,
+        "mode": "rig_only",
+        "mesh_file": mesh_path.name,
+        "rigged_file": rigged_path.name,
+        "vrm_file": vrm_file,
+        "output_dir": str(output_dir),
+        "download_url": f"/output/{stem}/{rigged_path.name}",
+        "mesh_download_url": f"/output/{stem}/{mesh_path.name}",
+        "vrm_download_url": f"/output/{stem}/{vrm_file}" if vrm_file else None,
+    }
+
+
 @app.get("/output/{name}/{filename}")
 async def download_file(name: str, filename: str):
     """생성된 파일 다운로드."""
