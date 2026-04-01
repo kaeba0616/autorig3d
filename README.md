@@ -105,15 +105,19 @@ python3 server.py
 ```
 
 http://localhost:8000 접속:
-- **🧊 3D 모델만** — 이미지 → GLB (리깅 없음)
-- **🎮 전체 파이프라인** — 이미지 → 3D → 리깅 → VRM
 
-### CLI — 전체 파이프라인
+| 버튼 | 입력 | 출력 |
+|------|------|------|
+| **🎮 전체 파이프라인** | 캐릭터 이미지 (PNG/JPG) | 3D + 리깅 + VRM |
+| **🧊 3D 모델만** | 캐릭터 이미지 (PNG/JPG) | GLB 3D 모델 |
+| **🦴 GLB 리깅** | 기존 GLB/FBX 모델 | 리깅 + VRM |
+
+### CLI — 전체 파이프라인 (이미지 → 3D → 리깅 → VRM)
 
 ```bash
 source .venv/bin/activate
 
-# 기본 (UniRig 있으면 자동 사용, 없으면 Blender)
+# 기본 (UniRig 있으면 자동, 없으면 Blender)
 python3 -m pipeline.run 캐릭터이미지.png
 
 # UniRig AI 리깅 (GPU 필요)
@@ -121,6 +125,23 @@ python3 -m pipeline.run 캐릭터이미지.png --mode unirig
 
 # Blender 리깅만 (GPU 불필요)
 python3 -m pipeline.run 캐릭터이미지.png --mode blender
+```
+
+### CLI — 기존 GLB/FBX 직접 리깅
+
+이미 3D 모델이 있으면 리깅만 바로 적용:
+
+```bash
+source .venv/bin/activate
+
+# 기존 GLB에 리깅 적용
+python3 -m pipeline.run model.glb --rig-only
+
+# UniRig AI로 리깅
+python3 -m pipeline.run model.glb --rig-only --mode unirig
+
+# Blender로 리깅
+python3 -m pipeline.run model.glb --rig-only --mode blender
 ```
 
 ### CLI — 3D 모델만 생성
