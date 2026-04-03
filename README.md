@@ -223,14 +223,32 @@ UniRig 사용 시 추가 파일:
 
 ---
 
-## Docker로 실행 (5080 PC 배포용, 추천)
+## GPU PC에 배포하기 (Docker, 추천)
+
+다른 PC(예: RTX 5080 탑재 PC)에서 UniRig를 돌리려면, Docker로 배포하는 게 가장 간단합니다.
+Git clone → docker compose build → docker compose up 세 줄이면 끝입니다.
+
+### 빠른 시작
+
+```bash
+# GPU PC에서 실행
+git clone https://github.com/kaeba0616/autorig3d.git
+cd autorig3d
+echo "MESHY_API_KEY=여기에_키" > .env
+docker compose build    # 최초 1회, 10-20분
+docker compose up       # http://localhost:8000
+```
+
+---
+
+## Docker 상세 설정
 
 Docker를 사용하면 CUDA, spconv, UniRig 등 복잡한 의존성을 한 번에 해결합니다.
 
 ### 사전 요구
 
 1. **Docker**: https://docs.docker.com/engine/install/
-2. **NVIDIA Container Toolkit**: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html
+2. **NVIDIA Container Toolkit**: GPU를 Docker 컨테이너에서 사용하기 위해 필요
 
 ```bash
 # NVIDIA Container Toolkit 설치 (Ubuntu)
@@ -243,23 +261,20 @@ sudo nvidia-ctk runtime configure --runtime=docker
 sudo systemctl restart docker
 ```
 
+3. **GPU 확인**: `nvidia-smi`로 GPU가 인식되는지 확인
+
 ### 빌드 + 실행
 
 ```bash
 git clone https://github.com/kaeba0616/autorig3d.git
 cd autorig3d
-
-# API 키 설정
 echo "MESHY_API_KEY=여기에_키" > .env
 
-# 빌드 (최초 1회, 10-20분)
-docker compose build
-
-# 실행
-docker compose up
+docker compose build    # 최초 1회, 10-20분
+docker compose up       # http://localhost:8000
 ```
 
-http://localhost:8000 접속 → 이미지 드래그 → 완료.
+접속 → 이미지 드래그 → 완료.
 
 ### Docker CLI 사용
 
